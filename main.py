@@ -7,7 +7,7 @@ from datetime import datetime
 
 load_dotenv()
 
-# --- Beállítások ---
+# --- Settings ---
 FILES_DIR  = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/javtest")
 OUTPUT_DIR = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/javtest_out")
 
@@ -21,7 +21,7 @@ SYSTEM_INSTRUCTIONS = (
 
 VISITED_PATH = Path("./visited.txt")
 
-# FV
+# FUNCTIONS
 
 def timer(action="start"):
     global _start_time
@@ -72,32 +72,32 @@ def add_to_visited(text: str) -> bool:
         f.write(text + "\n")
     return False
 
-# --- seatch for files: recursively, csak .txt ---
+# --- search for files: recursively, only .txt ---
 def iter_txt_files(root: Path):
-    # rglob + szigorú szuffix ellenőrzés (kis/nagybetűk miatt)
+    # rglob + strict suffix check (case-insensitive)
     for p in root.rglob("*"):
         if p.is_file() and p.suffix.lower() == ".txt":
             yield p
 
 def main():
     if not FILES_DIR.exists():
-        raise SystemExit(f"INPUT mappa nem létezik: {FILES_DIR}")
+        raise SystemExit(f"INPUT folder does not exist: {FILES_DIR}")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     if not os.environ.get("OPENAI_API_KEY"):
-        raise SystemExit("Hiányzik az OPENAI_API_KEY (.env).")
+        raise SystemExit("Missing OPENAI_API_KEY (.env).")
 
     client = OpenAI()
 
     txt_files = list(iter_txt_files(FILES_DIR))
     if not txt_files:
-        print("Nincs .txt fájl (rekurzívan sem).")
+        print("No .txt files found (even recursively).")
         return
 
-    print(f"{len(txt_files)} fájl találat (rekurzívan).")
+    print(f"{len(txt_files)} file(s) found (recursively).")
 
     for src in txt_files:
-        # kulcs a visited-hez: a bemeneti mappához viszonyított relatív útvonal
+        # key for visited.txt: relative path from the input folder
         rel_key = str(src.relative_to(FILES_DIR)).replace("\\", "/")
 
         if check_and_add_visited(rel_key):
@@ -105,30 +105,30 @@ def main():
             continue
 
         text = src.read_text(encoding="utf-8", errors="replace")
-
-        # stateless hívás: minden fájlhoz új kérés, mindig megkapja a SYSTEM_INSTRUCTIONS-t
+        say_time()
+        timer("start")
+        # stateless call: new request for each file, always gets SYSTEM_INSTRUCTIONS
         resp = client.responses.create(
             model=MODEL,
             instructions=SYSTEM_INSTRUCTIONS,
-            input=text.strip() if text.strip() else " "  # üres fájl ellen
+            input=text.strip() if text.strip() else " "  # empty file check
         )
-        say_time()
-        timer("start")
+
 
         corrected = resp.output_text
 
-        # OUTPUT mappában tükrözzük a struktúrát
+        # mirror the folder structure in the OUTPUT directory
         dst = OUTPUT_DIR / src.relative_to(FILES_DIR)
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(corrected, encoding="utf-8")
 
-        # csak SIKER után jegyezzük fel, hogy feldolgoztuk
+        # add to visited.txt only after successful processing
         add_to_visited(rel_key)
         timer("stop")
 
         print(f"OK: {rel_key} -> {dst}")
 
-    print("Kész.")
+    print("Done.")
 
 if __name__ == "__main__":
     main()
