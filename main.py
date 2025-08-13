@@ -5,11 +5,9 @@ from openai import OpenAI
 
 load_dotenv()
 
-# ---- Állítsd be az útvonalakat (ezt kérted) ----
-FILES_DIR  = Path("/home/datasets/raw-data/podcasts")  # bemeneti mappa
-OUTPUT_DIR = Path("/home/szabol/leiratok")             # kimeneti mappa
+FILES_DIR  = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/javtest")
+OUTPUT_DIR = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/javitva")
 
-# ---- Modell és rendszerutasítás ----
 MODEL = "gpt-4o-mini"
 SYSTEM_INSTRUCTIONS = (
     "Feladatod: a bemeneti szöveg helyesírási és nyelvtani javítása. "
@@ -19,7 +17,6 @@ SYSTEM_INSTRUCTIONS = (
 )
 
 def main():
-    # Ellenőrzések
     if not FILES_DIR.exists():
         raise SystemExit(f"INPUT mappa nem létezik: {FILES_DIR}")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -39,18 +36,14 @@ def main():
     for src in txt_files:
         text = src.read_text(encoding="utf-8", errors="replace")
 
-        # TELJES fájl küldése egyben a modellnek (egyszerűsített)
         resp = client.responses.create(
             model=MODEL,
-            system=SYSTEM_INSTRUCTIONS,
+            instructions=SYSTEM_INSTRUCTIONS,  # <-- itt a javítás
             input=text,
         )
-        corrected = getattr(resp, "output_text", None)
-        if corrected is None:
-            # régebbi válaszformátum fallback
-            corrected = resp.output[0].content[0].text.value
+        corrected = resp.output_text
 
-        dst = OUTPUT_DIR / src.name  # ugyanazzal a névvel
+        dst = OUTPUT_DIR / src.name
         dst.write_text(corrected, encoding="utf-8")
         print(f"OK: {src.name} -> {dst}")
 
