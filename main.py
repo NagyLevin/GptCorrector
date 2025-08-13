@@ -8,7 +8,7 @@ from datetime import datetime
 load_dotenv()
 
 # --- Settings ---
-FILES_DIR  = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/javtest")
+FILES_DIR  = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/leiratok")
 OUTPUT_DIR = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/javtest_out")
 
 MODEL = "gpt-4o-mini"
@@ -21,7 +21,13 @@ SYSTEM_INSTRUCTIONS = (
 
 VISITED_PATH = Path("./visited.txt")
 
+# --- Chunking config (tune if needed) ---
+CHUNK_CHARS = 12000         # aim for ~8–12k chars per chunk to avoid output caps
+MAX_OUTPUT_TOKENS = 8000    # per chunk; safe headroom
+TEMPERATURE = 0             # stable, deterministic edits
+
 # FUNCTIONS
+_start_time = None  # init timer state
 
 def timer(action="start"):
     global _start_time
@@ -41,7 +47,6 @@ def timer(action="start"):
 def say_time():
     now = datetime.now()
     print("Time now:", now.strftime("%H:%M:%S"))
-
 
 def _ensure_visited_file():
     VISITED_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -79,6 +84,31 @@ def iter_txt_files(root: Path):
         if p.is_file() and p.suffix.lower() == ".txt":
             yield p
 
+# --- Chunk helper: prefer splitting on paragraph boundaries, with hard-split fallback ---
+def chunk_by_paragraphs(s: str, max_chars: int = CHUNK_CHARS):
+    if len(s) <= max_chars:
+        return [s]
+    parts, buf, size = [], [], 0
+    for para in s.split("\n\n"):
+        block = para + "\n\n"
+        if size + len(block) > max_chars and buf:
+            parts.append("".join(buf))
+            buf, size = [block], len(block)
+        else:
+            buf.append(block)
+            size += len(block)
+    if buf:
+        parts.append("".join(buf))
+    # hard-split any oversize remainder
+    final = []
+    for c in parts:
+        if len(c) <= max_chars:
+            final.append(c)
+        else:
+            for i in range(0, len(c), max_chars):
+                final.append(c[i:i+max_chars])
+    return final
+
 def main():
     if not FILES_DIR.exists():
         raise SystemExit(f"INPUT folder does not exist: {FILES_DIR}")
@@ -102,21 +132,38 @@ def main():
 
         if check_and_add_visited(rel_key):
             print(f"SKIP (visited): {rel_key}")
-            continue #to skip the whole process
+            continue  # skip the whole process
 
         text = src.read_text(encoding="utf-8", errors="replace")
+
+        # Skip empty files gracefully
+        if not text.strip():
+            print(f"SKIP (empty): {rel_key}")
+            add_to_visited(rel_key)
+            continue
+
         say_time()
         timer("start")
-        # stateless call: new request for each file, always gets SYSTEM_INSTRUCTIONS
-        resp = client.responses.create(
-            model=MODEL,
-            instructions=SYSTEM_INSTRUCTIONS,
-            input=text.strip() if text.strip() else " "  # empty file check
 
-        )
+        # --- CHUNKED processing ---
+        corrected_parts = []
+        chunks = chunk_by_paragraphs(text, CHUNK_CHARS)
+        print(f"Processing in {len(chunks)} chunk(s)...")
 
+        for idx, part in enumerate(chunks, start=1):
+            t0 = time.time()
+            resp = client.responses.create(
+                model=MODEL,
+                instructions=SYSTEM_INSTRUCTIONS,
+                input=part.strip() if part.strip() else " ",
+                max_output_tokens=MAX_OUTPUT_TOKENS,
+                temperature=TEMPERATURE,
+            )
+            corrected_parts.append(resp.output_text)
+            dt = time.time() - t0
+            print(f"  chunk {idx}/{len(chunks)} done in {dt:.2f}s")
 
-        corrected = resp.output_text
+        corrected = "".join(corrected_parts)
 
         # mirror the folder structure in the OUTPUT directory
         dst = OUTPUT_DIR / src.relative_to(FILES_DIR)
