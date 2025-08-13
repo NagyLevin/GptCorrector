@@ -102,7 +102,7 @@ def main():
 
         if check_and_add_visited(rel_key):
             print(f"SKIP (visited): {rel_key}")
-            continue
+            continue #to skip the whole process
 
         text = src.read_text(encoding="utf-8", errors="replace")
         say_time()
@@ -112,6 +112,7 @@ def main():
             model=MODEL,
             instructions=SYSTEM_INSTRUCTIONS,
             input=text.strip() if text.strip() else " "  # empty file check
+
         )
 
 
