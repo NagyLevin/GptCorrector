@@ -8,21 +8,21 @@ from datetime import datetime
 load_dotenv()
 
 # --- Settings ---
-FILES_DIR  = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/leiratok")
-OUTPUT_DIR = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/javtest_out")
+FILES_DIR  = Path("/home/szabol/leiratok")
+OUTPUT_DIR = Path("/home/szabol/podcast_corrected_with_gpt")
 
 MODEL = "gpt-4o-mini"
 SYSTEM_INSTRUCTIONS = (
-    "Feladatod: a bemeneti szöveg helyesírási és nyelvtani javítása. "
-    "Csak a hibákat javítsd (betűhibák, elütések, írásjelek, ragozás), "
-    "a jelentést ne változtasd meg, ne adj hozzá és ne hagyj ki mondatokat. "
-    "Formázást, sortöréseket tartsd meg. Válaszolj kizárólag a javított szöveggel."
+    "Feladatod: a bemeneti szĂ¶veg helyesĂ­rĂˇsi Ă©s nyelvtani javĂ­tĂˇsa. "
+    "Csak a hibĂˇkat javĂ­tsd (betĹ±hibĂˇk, elĂĽtĂ©sek, Ă­rĂˇsjelek, ragozĂˇs), "
+    "a jelentĂ©st ne vĂˇltoztasd meg, ne adj hozzĂˇ Ă©s ne hagyj ki mondatokat. "
+    "FormĂˇzĂˇst, sortĂ¶rĂ©seket tartsd meg. VĂˇlaszolj kizĂˇrĂłlag a javĂ­tott szĂ¶veggel."
 )
 
 VISITED_PATH = Path("./visited.txt")
 
 # --- Chunking config (tune if needed) ---
-CHUNK_CHARS = 12000         # aim for ~8–12k chars per chunk to avoid output caps
+CHUNK_CHARS = 12000         # aim for ~8â€“12k chars per chunk to avoid output caps
 MAX_OUTPUT_TOKENS = 8000    # per chunk; safe headroom
 TEMPERATURE = 0             # stable, deterministic edits
 
@@ -129,6 +129,8 @@ def main():
     for src in txt_files:
         # key for visited.txt: relative path from the input folder
         rel_key = str(src.relative_to(FILES_DIR)).replace("\\", "/")
+
+        print(f"Working on: {src.name}")
 
         if check_and_add_visited(rel_key):
             print(f"SKIP (visited): {rel_key}")
