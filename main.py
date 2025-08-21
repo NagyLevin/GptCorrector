@@ -190,5 +190,6 @@ if __name__ == "__main__":
 
         main()
         print("Waiting for new files to process")
+
         say_time()
         time.sleep(60)
