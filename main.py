@@ -8,8 +8,13 @@ from datetime import datetime
 load_dotenv()
 
 # --- Settings ---
-FILES_DIR  = Path("/home/szabol/leiratok")
-OUTPUT_DIR = Path("/home/szabol/podcast_corrected_with_gpt")
+#FILES_DIR  = Path("/home/szabol/leiratok")
+#OUTPUT_DIR = Path("/home/szabol/podcast_corrected_with_gpt")
+
+FILES_DIR  = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/gptjavtest")
+OUTPUT_DIR = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/javitva")
+
+
 
 MODEL = "gpt-4o-mini"
 SYSTEM_INSTRUCTIONS = (
@@ -181,4 +186,9 @@ def main():
     print("Done.")
 
 if __name__ == "__main__":
-    main()
+    while True:
+
+        main()
+        print("Waiting for new files to process")
+        say_time()
+        time.sleep(60)
