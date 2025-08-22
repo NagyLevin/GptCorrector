@@ -5,26 +5,26 @@ import time
 import os
 from datetime import datetime
 
-load_dotenv()
+load_dotenv() # GPT API key is in a .env file
 
 # --- Settings ---
-#FILES_DIR  = Path("/home/szabol/leiratok")
-#OUTPUT_DIR = Path("/home/szabol/podcast_corrected_with_gpt")
-
-FILES_DIR  = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/gptjavtest")
-OUTPUT_DIR = Path("/mnt/c/Users/Levinwork/Documents/Nytud/1feladat/celanyag/javitva")
+FILES_DIR  = Path("/home/szabol/leiratok")
+OUTPUT_DIR = Path("/home/szabol/podcast_corrected_with_gpt")
 
 
-
+"""
+GPT modell and instructions
+in the future might update to GPT5
+"""
 MODEL = "gpt-4o-mini"
 SYSTEM_INSTRUCTIONS = (
-    "Feladatod: a bemeneti szĂ¶veg helyesĂ­rĂˇsi Ă©s nyelvtani javĂ­tĂˇsa. "
-    "Csak a hibĂˇkat javĂ­tsd (betĹ±hibĂˇk, elĂĽtĂ©sek, Ă­rĂˇsjelek, ragozĂˇs), "
-    "a jelentĂ©st ne vĂˇltoztasd meg, ne adj hozzĂˇ Ă©s ne hagyj ki mondatokat. "
-    "FormĂˇzĂˇst, sortĂ¶rĂ©seket tartsd meg. VĂˇlaszolj kizĂˇrĂłlag a javĂ­tott szĂ¶veggel."
+    "Feladatod: a bemeneti szöveg helyesírási és nyelvtani javítása. "
+    "Csak a hibákat javítsd (betűhibák, elütések, írásjelek, ragozás), "
+    "a jelentést ne változtasd meg, ne adj hozzá és ne hagyj ki mondatokat. "
+    "Formázást, sortöréseket tartsd meg. Válaszolj kizárólag a javított szöveggel."
 )
 
-VISITED_PATH = Path("./visited.txt")
+VISITED_PATH = Path("./visited.txt") #path the the names of the visited files
 
 # --- Chunking config (tune if needed) ---
 CHUNK_CHARS = 12000         # aim for ~8â€“12k chars per chunk to avoid output caps
@@ -33,6 +33,10 @@ TEMPERATURE = 0             # stable, deterministic edits
 
 # FUNCTIONS
 _start_time = None  # init timer state
+
+"""
+You can see how long the process took
+"""
 
 def timer(action="start"):
     global _start_time
@@ -49,6 +53,10 @@ def timer(action="start"):
     else:
         print("Unknown timer action. Use: timer('start') or timer('stop')")
 
+
+"""
+Says the current time
+"""
 def say_time():
     now = datetime.now()
     print("Time now:", now.strftime("%H:%M:%S"))
@@ -82,14 +90,22 @@ def add_to_visited(text: str) -> bool:
         f.write(text + "\n")
     return False
 
-# --- search for files: recursively, only .txt ---
+
+
+"""
+search for files: recursively, only .txt
+"""
 def iter_txt_files(root: Path):
     # rglob + strict suffix check (case-insensitive)
     for p in root.rglob("*"):
-        if p.is_file() and p.suffix.lower() == ".txt":
+        if p.is_file() and p.suffix.lower() == ".txt": #search for txt only
             yield p
 
+"""
 # --- Chunk helper: prefer splitting on paragraph boundaries, with hard-split fallback ---
+"""
+
+
 def chunk_by_paragraphs(s: str, max_chars: int = CHUNK_CHARS):
     if len(s) <= max_chars:
         return [s]
@@ -114,12 +130,14 @@ def chunk_by_paragraphs(s: str, max_chars: int = CHUNK_CHARS):
                 final.append(c[i:i+max_chars])
     return final
 
-def main():
-    if not FILES_DIR.exists():
-        raise SystemExit(f"INPUT folder does not exist: {FILES_DIR}")
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    if not os.environ.get("OPENAI_API_KEY"):
+def main():
+    if not FILES_DIR.exists(): #checks if the input files dir exists
+        raise SystemExit(f"INPUT folder does not exist: {FILES_DIR}")
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)  #makes autput dir if it does not exist
+
+    if not os.environ.get("OPENAI_API_KEY"):    #checks for openai api key
         raise SystemExit("Missing OPENAI_API_KEY (.env).")
 
     client = OpenAI()
@@ -131,7 +149,7 @@ def main():
 
     print(f"{len(txt_files)} file(s) found (recursively).")
 
-    for src in txt_files:
+    for src in txt_files: #works on every file found
         # key for visited.txt: relative path from the input folder
         rel_key = str(src.relative_to(FILES_DIR)).replace("\\", "/")
 
@@ -186,7 +204,7 @@ def main():
     print("Done.")
 
 if __name__ == "__main__":
-    while True:
+    while True:     # very small tweek, its in an inf loop so that it can check for new files every minute
 
         main()
         print("Waiting for new files to process")
