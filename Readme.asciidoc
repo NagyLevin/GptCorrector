@@ -1,0 +1,98 @@
+# Text Correct Automate: `main.py`
+by Levin
+:toc:
+
+### Cél és összefoglaló
+Ez a script (`main.py`) automatizálja a podcastokhoz tartozó szövegfájlok (*.txt*) helyesírási és nyelvtani javítását az OpenAI GPT API segítségével.
+A program rekurzívan végigkeresi az adott bemeneti könyvtárat, feldolgozza a szövegfájlokat darabolva (chunkolva), majd a javított változatokat menti az eredeti könyvtárstruktúra megtartásával.
+A `visited.txt` fájl segítségével biztosított, hogy egy fájl ne kerüljön kétszer feldolgozásra.
+
+### Fő funkciók
+
+* Rekurzív fájlkeresés: csak `.txt` kiterjesztésű fájlokat dolgoz fel.
+* `visited.txt` alapú deduplikáció: ugyanazt a relatív fájlnevet csak egyszer javítja.
+* Chunkolás: nagy szövegeket ~12k karakteres darabokra bont, lehetőség szerint bekezdés-határok mentén.
+* GPT API integráció: minden chunkot külön javíttat a modellel, majd összefűzi a részeredményeket.
+* Időmérés és naplózás: futási idő kijelzése, aktuális idő kiírása.
+* Vég nélküli figyelő ciklus: percenként újraellenőrzi a bemeneti könyvtárat új fájlokért.
+
+|===
+|Változó | Jelentés
+
+|`FILES_DIR` | Bemeneti szövegfájlok gyökérmappája (rekurzív bejárás)
+|`OUTPUT_DIR` | Javított szövegek mentési gyökérmappája (eredeti relatív útvonal megtartásával)
+|`VISITED_PATH` | Az eddig feldolgozott fájlok listája (`visited.txt`)
+|===
+
+|===
+|Név | Típus | Alapérték | Leírás
+
+|`MODEL` | str | `"gpt-4o-mini"` | Az OpenAI modell, amely a javítást végzi
+|`SYSTEM_INSTRUCTIONS` | str | (ld. kódban) | Utasítás a modellnek: csak helyesírási hibákat javítson
+|`CHUNK_CHARS` | int | `12000` | Egy chunk maximális hossza karakterben
+|`MAX_OUTPUT_TOKENS` | int | `8000` | Egy chunk feldolgozásakor engedett maximális kimeneti tokenek
+|===
+
+
+## Fő komponensek
+### Naplózás és időmérés
+
+* `say_time()`: kiírja az aktuális időt.
+* `timer("start"|"stop")`: elindítja/leállítja a folyamatidő mérését.
+
+### Deduplikáció: `visited.txt`
+
+* `check_and_add_visited(key)`: megnézi, szerepel-e már a fájl.
+* `add_to_visited(key)`: hozzáadja a fájlt a listához feldolgozás után.
+* A kulcs a fájl **relatív útvonala** a `FILES_DIR`-hez képest.
+
+### Chunkolás: `chunk_by_paragraphs()`
+
+* A szöveget bekezdések mentén darabolja.
+* Ha egy bekezdés túl nagy, kemény vágással osztja fel.
+* Így biztosított, hogy a GPT API ne kapjon túl hosszú bemenetet.
+
+### Fő feldolgozás: `main()`
+
+* Ellenőrzi, hogy van-e API kulcs.
+* Végigmegy a bemeneti `.txt` fájlokon.
+* Feldolgozza és kijavítja a szövegeket chunkokra bontva.
+* Az eredményt az `OUTPUT_DIR`-be menti, a könyvtárstruktúra megtartásával.
+* A feldolgozás után feljegyzi a fájlt a `visited.txt`-be.
+
+### Vég nélküli futás
+
+* A `while True` ciklus percenként újra lefuttatja a feldolgozást.
+* Így automatikusan feldolgozza az újonnan bekerült fájlokat is.
+* FIGYELJ majd manuálisan kell ezért leállítani!
+
+### Kimenet
+
+* A javított fájlok UTF-8 kódolású szövegként kerülnek az `OUTPUT_DIR`-be.
+* Az üres fájlokat kihagyja (de megjelöli a `visited.txt`-ben).
+
+## Példa futási napló (részlet)
+
+---------
+ python3 main.py
+
+3 file(s) found (recursively).
+Working on: podcast1.txt
+Time now: 14:02:12
+Timer started...
+Processing in 2 chunk(s)...
+  chunk 1/2 done in 1.25s
+  chunk 2/2 done in 1.12s
+Elapsed: 2.501 sec
+OK: podcast1.txt -> /home/szabol/podcast_corrected_with_gpt/podcast1.txt
+Waiting for new files to process
+Time now: 14:03:12
+---------
+
+## Telepítési tippek
+
+* Készíts Python virtuális környezetet:
+* python -m venv .venv
+* source .venv/bin/activate
+* pip install -r requirements.txt
+* python main.py
