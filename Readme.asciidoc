@@ -1,29 +1,33 @@
-# Text Correct Automate: `main.py`
-by Levin
+= Text Correct Automate: `main.py`
+Levin
 :toc:
 
-### Cél és összefoglaló
-Ez a script (`main.py`) automatizálja a podcastokhoz tartozó szövegfájlok (*.txt*) helyesírási és nyelvtani javítását az OpenAI GPT API segítségével.
-A program rekurzívan végigkeresi az adott bemeneti könyvtárat, feldolgozza a szövegfájlokat darabolva (chunkolva), majd a javított változatokat menti az eredeti könyvtárstruktúra megtartásával.
-A `visited.txt` fájl segítségével biztosított, hogy egy fájl ne kerüljön kétszer feldolgozásra.
+== Cél és összefoglaló
+Ez a script (`main.py`) automatizálja a podcastokhoz tartozó szövegfájlok (*.txt*) helyesírási és nyelvtani javítását az OpenAI GPT API segítségével.  
+A program rekurzívan végigkeresi az adott bemeneti könyvtárat, feldolgozza a szövegfájlokat darabolva (chunkolva), majd a javított változatokat menti az eredeti könyvtárstruktúra megtartásával.  
+A `visited.txt` fájl biztosítja, hogy egy fájl ne kerüljön kétszer feldolgozásra, a `timeouts.txt` pedig a hibásan feldolgozott fájlokat gyűjti, amelyeket a következő futásokkor újra megpróbál feldolgozni.
 
-### Fő funkciók
+== Fő funkciók
 
 * Rekurzív fájlkeresés: csak `.txt` kiterjesztésű fájlokat dolgoz fel.
 * `visited.txt` alapú deduplikáció: ugyanazt a relatív fájlnevet csak egyszer javítja.
-* Chunkolás: nagy szövegeket ~12k karakteres darabokra bont, lehetőség szerint bekezdés-határok mentén.
+* `timeouts.txt` kezelés: ha akár egy chunk feldolgozása sikertelen vagy üres, a fájl feldolgozása megszakad, **nem kerül a visited-be**, hanem a `timeouts.txt`-be íródik. Következő futáskor újrapróbálkozik vele.
+* All-or-nothing chunkolás: nagy szövegeket ~12k karakteres darabokra bont, és csak akkor menti az eredményt, ha **minden chunk sikeresen feldolgozódott**.
 * GPT API integráció: minden chunkot külön javíttat a modellel, majd összefűzi a részeredményeket.
 * Időmérés és naplózás: futási idő kijelzése, aktuális idő kiírása.
 * Vég nélküli figyelő ciklus: percenként újraellenőrzi a bemeneti könyvtárat új fájlokért.
 
+[cols="1,3",options="header"]
 |===
 |Változó | Jelentés
 
 |`FILES_DIR` | Bemeneti szövegfájlok gyökérmappája (rekurzív bejárás)
 |`OUTPUT_DIR` | Javított szövegek mentési gyökérmappája (eredeti relatív útvonal megtartásával)
-|`VISITED_PATH` | Az eddig feldolgozott fájlok listája (`visited.txt`)
+|`VISITED_PATH` | Az eddig sikeresen feldolgozott fájlok listája (`visited.txt`)
+|`TIMEOUTS_PATH` | A hibás feldolgozás miatt megszakadt fájlok listája (`timeouts.txt`)
 |===
 
+[cols="1,1,1,3",options="header"]
 |===
 |Név | Típus | Alapérték | Leírás
 
@@ -33,47 +37,56 @@ A `visited.txt` fájl segítségével biztosított, hogy egy fájl ne kerüljön
 |`MAX_OUTPUT_TOKENS` | int | `8000` | Egy chunk feldolgozásakor engedett maximális kimeneti tokenek
 |===
 
+== Fő komponensek
 
-## Fő komponensek
-### Naplózás és időmérés
+=== Naplózás és időmérés
 
 * `say_time()`: kiírja az aktuális időt.
 * `timer("start"|"stop")`: elindítja/leállítja a folyamatidő mérését.
 
-### Deduplikáció: `visited.txt`
+=== Deduplikáció: `visited.txt`
 
 * `check_and_add_visited(key)`: megnézi, szerepel-e már a fájl.
 * `add_to_visited(key)`: hozzáadja a fájlt a listához feldolgozás után.
-* A kulcs a fájl **relatív útvonala** a `FILES_DIR`-hez képest.
+* A kulcs a fájl *relatív útvonala* a `FILES_DIR`-hez képest.
 
-### Chunkolás: `chunk_by_paragraphs()`
+=== Hibás fájlok kezelése: `timeouts.txt`
+
+* `add_to_timeouts(key)`: ha egy fájl feldolgozása megszakad (pl. hiányzó vagy üres chunk miatt), a neve bekerül a `timeouts.txt`-be.  
+* Ezek a fájlok *nem kerülnek* a `visited.txt`-be, tehát a következő futáskor a program újra megpróbálja feldolgozni őket.  
+* Így biztosítható, hogy átmeneti hibák (pl. API timeout) után a fájl később újra feldolgozódhasson.
+
+=== Chunkolás: `chunk_by_paragraphs()`
 
 * A szöveget bekezdések mentén darabolja.
 * Ha egy bekezdés túl nagy, kemény vágással osztja fel.
 * Így biztosított, hogy a GPT API ne kapjon túl hosszú bemenetet.
 
-### Fő feldolgozás: `main()`
+=== Fő feldolgozás: `main()`
 
 * Ellenőrzi, hogy van-e API kulcs.
 * Végigmegy a bemeneti `.txt` fájlokon.
-* Feldolgozza és kijavítja a szövegeket chunkokra bontva.
+* Minden chunkot elküld a GPT-nek.  
+** Ha bármelyik chunk hibát ad vagy üres → megszakítja a fájl feldolgozását, és `timeouts.txt`-be írja.  
+** Csak ha minden chunk sikeres → összefűzi és menti az eredményt.
 * Az eredményt az `OUTPUT_DIR`-be menti, a könyvtárstruktúra megtartásával.
 * A feldolgozás után feljegyzi a fájlt a `visited.txt`-be.
 
-### Vég nélküli futás
+=== Vég nélküli futás
 
 * A `while True` ciklus percenként újra lefuttatja a feldolgozást.
 * Így automatikusan feldolgozza az újonnan bekerült fájlokat is.
-* FIGYELJ majd manuálisan kell ezért leállítani!
+* *FIGYELJ*: manuálisan kell leállítani!
 
-### Kimenet
+=== Kimenet
 
 * A javított fájlok UTF-8 kódolású szövegként kerülnek az `OUTPUT_DIR`-be.
 * Az üres fájlokat kihagyja (de megjelöli a `visited.txt`-ben).
+* A hibás fájlokat a `timeouts.txt`-ben listázza, így újrafeldolgozhatók.
 
-## Példa futási napló (részlet)
+== Példa futási napló (részlet)
 
----------
+----
  python3 main.py
 
 3 file(s) found (recursively).
@@ -87,12 +100,23 @@ Elapsed: 2.501 sec
 OK: podcast1.txt -> /home/szabol/podcast_corrected_with_gpt/podcast1.txt
 Waiting for new files to process
 Time now: 14:03:12
----------
 
-## Telepítési tippek
+Working on: podcast2.txt
+Processing in 3 chunk(s)...
+  chunk 1/3 done in 1.30s
+[ABORT FILE] podcast2.txt due to chunk failure: Empty output for chunk 2/3
+→ podcast2.txt added to timeouts.txt
+----
+
+*Megjegyzés:* Egy jövőbeli kiegészítés lehet egy `retry_timeouts.py`, ami végigmegy a `timeouts.txt`-n, és explicit újrafuttatja az ott lévő fájlokat.
+
+== Telepítési tippek
 
 * Készíts Python virtuális környezetet:
-* python -m venv .venv
-* source .venv/bin/activate
-* pip install -r requirements.txt
-* python main.py
++
+----
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
+----
