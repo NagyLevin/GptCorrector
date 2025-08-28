@@ -2,6 +2,18 @@
 Levin
 :toc:
 
+== Telepítési tippek
+
+* Készíts Python virtuális környezetet:
++
+----
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
+----
+
+
 == Cél és összefoglaló
 Ez a script (`main.py`) automatizálja a podcastokhoz tartozó szövegfájlok (*.txt*) helyesírási és nyelvtani javítását az OpenAI GPT API segítségével.  
 A program rekurzívan végigkeresi az adott bemeneti könyvtárat, feldolgozza a szövegfájlokat darabolva (chunkolva), majd a javított változatokat menti az eredeti könyvtárstruktúra megtartásával.  
@@ -110,13 +122,3 @@ Processing in 3 chunk(s)...
 
 *Megjegyzés:* Egy jövőbeli kiegészítés lehet egy `retry_timeouts.py`, ami végigmegy a `timeouts.txt`-n, és explicit újrafuttatja az ott lévő fájlokat.
 
-== Telepítési tippek
-
-* Készíts Python virtuális környezetet:
-+
-----
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python main.py
-----
